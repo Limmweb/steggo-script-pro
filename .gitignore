@@ -1,0 +1,7 @@
+# Python / PyInstaller temporary files
+__pycache__/
+*.py[cod]
+build/
+*.spec
+.idea/
+.vscode/
