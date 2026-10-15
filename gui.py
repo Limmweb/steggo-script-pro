@@ -54,7 +54,7 @@ I18N = {
 }
 
 
-class SoraStegoApp(tk.Tk):
+class SteggoApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.lang_var = tk.StringVar(value="ru")
@@ -300,5 +300,5 @@ class SoraStegoApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    app = SoraStegoApp()
+    app = SteggoApp()
     app.mainloop()

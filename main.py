@@ -2,8 +2,8 @@
 # Steggo Script Pro - Main Entry Point
 # Created by Alexander Belmont, Gemini and Grok
 
-from gui import SoraStegoApp
+from gui import SteggoApp
 
 if __name__ == "__main__":
-    app = SoraStegoApp()
+    app = SteggoApp()
     app.mainloop()
