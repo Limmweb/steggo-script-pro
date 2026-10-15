@@ -12,34 +12,78 @@ from PIL import Image, ImageTk
 
 from style import ACCENT_PINK, BG_COLOR, BTN_ACTIVE_PINK, ENTRY_BG, FG_COLOR, TEXT_FG
 from utils import sanitize_filename
-from writers import MODE_LABELS, build_image, build_image_info, canvas_size
+from writers import MODE_LABELS, build_image, canvas_size
+
+I18N = {
+    "ru": {
+        "app_title": "Steggo Script / Chips Maker",
+        "codec_label": "Режим кодирования:",
+        "codecs": {"stego": "Стего", "braille": "Брайль", "morse": "Морзе", "qr": "QR-код"},
+        "header_cb": "Включить контрольную строку (инструкция для ИИ)",
+        "text_label": "Текст для кодирования:",
+        "btn_create": "СОЗДАТЬ",
+        "chip_size": "Размер чипа: {w}x{h} px",
+        "error_fmt": "Ошибка: {err}",
+        "warn_title": "Внимание",
+        "warn_no_text": "Введите текст для кодирования.",
+        "save_title": "Сохранить стегго-чип",
+        "success_title": "Успех",
+        "success_msg": "Изображение успешно сохранено:\n{path}",
+        "error_title": "Ошибка",
+        "error_save": "Не удалось создать файл:\n{err}",
+        "footer": "By Alexander Belmont, Gemini and Grok",
+    },
+    "en": {
+        "app_title": "Steggo Script / Chips Maker",
+        "codec_label": "Encoding Mode:",
+        "codecs": {"stego": "Stego", "braille": "Braille", "morse": "Morse", "qr": "QR Code"},
+        "header_cb": "Include control line (AI instruction)",
+        "text_label": "Text to encode:",
+        "btn_create": "CREATE",
+        "chip_size": "Chip size: {w}x{h} px",
+        "error_fmt": "Error: {err}",
+        "warn_title": "Warning",
+        "warn_no_text": "Please enter text to encode.",
+        "save_title": "Save steggo chip",
+        "success_title": "Success",
+        "success_msg": "Image saved successfully:\n{path}",
+        "error_title": "Error",
+        "error_save": "Failed to save file:\n{err}",
+        "footer": "By Alexander Belmont, Gemini and Grok",
+    },
+}
 
 
 class SoraStegoApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Steggo Script / Chips Maker — By Alexander Belmont, Gemini and Grok")
-        self.geometry("820x700")
+        self.lang_var = tk.StringVar(value="ru")
+        
+        self.title(I18N["ru"]["app_title"])
+        self.geometry("840x700")
         self.configure(bg=BG_COLOR)
 
         self.current_image = None
         self.tk_image = None
 
         self._create_widgets()
+        self._update_language()
 
     def _create_widgets(self):
         # Top frame for controls
         top_frame = tk.Frame(self, bg=BG_COLOR, padx=10, pady=10)
         top_frame.pack(fill=tk.X, side=tk.TOP)
 
-        # Codec Selection
-        tk.Label(top_frame, text="Режим кодирования:", bg=BG_COLOR, fg=FG_COLOR, font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        # Row 0: Codec Selection & Language Switcher
+        self.lbl_codec = tk.Label(top_frame, text="", bg=BG_COLOR, fg=FG_COLOR, font=("Segoe UI", 10, "bold"))
+        self.lbl_codec.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         
         self.codec_var = tk.StringVar(value="stego")
-        for idx, (code, label) in enumerate(MODE_LABELS.items()):
+        self.rb_codecs = {}
+        for idx, code in enumerate(["stego", "braille", "morse", "qr"]):
             rb = tk.Radiobutton(
                 top_frame,
-                text=label,
+                text="",
                 value=code,
                 variable=self.codec_var,
                 bg=BG_COLOR,
@@ -51,12 +95,56 @@ class SoraStegoApp(tk.Tk):
                 command=self._on_input_change
             )
             rb.grid(row=0, column=1 + idx, padx=5, pady=5, sticky=tk.W)
+            self.rb_codecs[code] = rb
 
-        # Header Checkbox
+        # Language Toggle Frame on the right
+        lang_frame = tk.Frame(top_frame, bg=BG_COLOR)
+        lang_frame.grid(row=0, column=5, sticky=tk.E, padx=(20, 5), pady=5)
+        top_frame.columnconfigure(5, weight=1)
+
+        self.rb_ru = tk.Radiobutton(
+            lang_frame,
+            text="RU",
+            value="ru",
+            variable=self.lang_var,
+            indicatoron=False,
+            bg=ENTRY_BG,
+            fg=FG_COLOR,
+            selectcolor=ACCENT_PINK,
+            activebackground=ACCENT_PINK,
+            activeforeground="#ffffff",
+            font=("Segoe UI", 9, "bold"),
+            padx=8,
+            pady=2,
+            bd=0,
+            command=self._update_language
+        )
+        self.rb_ru.pack(side=tk.LEFT, padx=2)
+
+        self.rb_en = tk.Radiobutton(
+            lang_frame,
+            text="EN",
+            value="en",
+            variable=self.lang_var,
+            indicatoron=False,
+            bg=ENTRY_BG,
+            fg=FG_COLOR,
+            selectcolor=ACCENT_PINK,
+            activebackground=ACCENT_PINK,
+            activeforeground="#ffffff",
+            font=("Segoe UI", 9, "bold"),
+            padx=8,
+            pady=2,
+            bd=0,
+            command=self._update_language
+        )
+        self.rb_en.pack(side=tk.LEFT, padx=2)
+
+        # Row 1: Header Checkbox
         self.header_var = tk.BooleanVar(value=True)
-        cb_header = tk.Checkbutton(
+        self.cb_header = tk.Checkbutton(
             top_frame,
-            text="Включить контрольную строку (инструкция для ИИ)",
+            text="",
             variable=self.header_var,
             bg=BG_COLOR,
             fg=FG_COLOR,
@@ -66,13 +154,14 @@ class SoraStegoApp(tk.Tk):
             font=("Segoe UI", 9),
             command=self._on_input_change
         )
-        cb_header.grid(row=1, column=0, columnspan=4, sticky=tk.W, padx=5, pady=5)
+        self.cb_header.grid(row=1, column=0, columnspan=5, sticky=tk.W, padx=5, pady=5)
 
         # Text input area
         input_frame = tk.Frame(self, bg=BG_COLOR, padx=10, pady=5)
         input_frame.pack(fill=tk.X, side=tk.TOP)
 
-        tk.Label(input_frame, text="Текст для кодирования:", bg=BG_COLOR, fg=FG_COLOR, font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+        self.lbl_text_editor = tk.Label(input_frame, text="", bg=BG_COLOR, fg=FG_COLOR, font=("Segoe UI", 10, "bold"))
+        self.lbl_text_editor.pack(anchor=tk.W, pady=(0, 5))
         
         self.text_editor = ScrolledText(
             input_frame,
@@ -93,7 +182,7 @@ class SoraStegoApp(tk.Tk):
 
         self.btn_create = tk.Button(
             btn_frame,
-            text="« СОЗДАТЬ »",
+            text="",
             bg=ACCENT_PINK,
             fg="#ffffff",
             activebackground=BTN_ACTIVE_PINK,
@@ -122,17 +211,37 @@ class SoraStegoApp(tk.Tk):
         footer_frame = tk.Frame(self, bg=BG_COLOR, pady=5)
         footer_frame.pack(fill=tk.X, side=tk.BOTTOM)
         
-        lbl_footer = tk.Label(
+        self.lbl_footer = tk.Label(
             footer_frame,
-            text="By Alexander Belmont, Gemini and Grok",
+            text="",
             bg=BG_COLOR,
             fg="#888888",
             font=("Segoe UI", 9, "italic")
         )
-        lbl_footer.pack(side=tk.RIGHT, padx=15)
+        self.lbl_footer.pack(side=tk.RIGHT, padx=15)
+
+    def _update_language(self):
+        lang = self.lang_var.get()
+        t = I18N.get(lang, I18N["ru"])
+
+        self.title(t["app_title"])
+        self.lbl_codec.config(text=t["codec_label"])
+        
+        for code, rb in self.rb_codecs.items():
+            rb.config(text=t["codecs"][code])
+            
+        self.cb_header.config(text=t["header_cb"])
+        self.lbl_text_editor.config(text=t["text_label"])
+        self.btn_create.config(text=t["btn_create"])
+        self.lbl_footer.config(text=t["footer"])
+
+        self._on_input_change()
 
     def _on_input_change(self):
         text = self.text_editor.get("1.0", tk.END).strip()
+        lang = self.lang_var.get()
+        t = I18N.get(lang, I18N["ru"])
+
         if not text:
             self.lbl_info.config(text="")
             self.canvas_lbl.config(image="")
@@ -144,7 +253,7 @@ class SoraStegoApp(tk.Tk):
 
         try:
             w, h = canvas_size(codec, text, with_header=with_hdr)
-            self.lbl_info.config(text=f"Размер чипа: {w}x{h} px")
+            self.lbl_info.config(text=t["chip_size"].format(w=w, h=h))
             
             # Generate preview image
             img = build_image(codec, text, with_header=with_hdr)
@@ -157,12 +266,15 @@ class SoraStegoApp(tk.Tk):
             self.tk_image = ImageTk.PhotoImage(preview_img)
             self.canvas_lbl.config(image=self.tk_image)
         except Exception as err:
-            self.lbl_info.config(text=f"Ошибка: {err}")
+            self.lbl_info.config(text=t["error_fmt"].format(err=err))
 
     def _generate_and_save(self):
         text = self.text_editor.get("1.0", tk.END).strip()
+        lang = self.lang_var.get()
+        t = I18N.get(lang, I18N["ru"])
+
         if not text:
-            messagebox.showwarning("Внимание", "Введите текст для кодирования.")
+            messagebox.showwarning(t["warn_title"], t["warn_no_text"])
             return
 
         codec = self.codec_var.get()
@@ -174,7 +286,7 @@ class SoraStegoApp(tk.Tk):
             
             default_name = f"{sanitize_filename(text)}_{codec}_{w}x{h}.png"
             save_path = filedialog.asksaveasfilename(
-                title="Сохранить стегго-чип",
+                title=t["save_title"],
                 initialfile=default_name,
                 defaultextension=".png",
                 filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")]
@@ -182,9 +294,9 @@ class SoraStegoApp(tk.Tk):
 
             if save_path:
                 img.save(save_path)
-                messagebox.showinfo("Успех", f"Изображение успешно сохранено:\n{save_path}")
+                messagebox.showinfo(t["success_title"], t["success_msg"].format(path=save_path))
         except Exception as err:
-            messagebox.showerror("Ошибка", f"Не удалось создать файл:\n{err}")
+            messagebox.showerror(t["error_title"], t["error_save"].format(err=err))
 
 
 if __name__ == "__main__":

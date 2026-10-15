@@ -1,9 +1,13 @@
 # writers.py
+# Steggo Script Pro - Codecs & Image Generation
+# Created by Alexander Belmont, Gemini and Grok
+
 import functools
 import math
 import os
 
 import numpy as np
+import qrcode
 from PIL import Image, ImageDraw, ImageFont
 from scipy.fftpack import dct, idct
 
@@ -24,16 +28,19 @@ CONTROL_MORSE = (
     "a new text line is 11. Capital prefix is ..-.- , yo is ..--. , "
     "opening quote is -..-.- , closing quote is --..-. ."
 )
+CONTROL_QR = "This is a standard QR code containing encoded text, scan it to read the content."
+
 CONTROLS = {
     "stego": CONTROL_STEGO,
     "braille": CONTROL_BRAILLE,
     "morse": CONTROL_MORSE,
+    "qr": CONTROL_QR,
 }
-MODE_LABELS = {"stego": "Стего", "braille": "Брайль", "morse": "Морзе"}
+MODE_LABELS = {"stego": "Стего", "braille": "Брайль", "morse": "Морзе", "qr": "QR-код"}
 
 HEADER_MAX_RATIO = 0.20
-HEADER_FONT_MIN = 6
-HEADER_FONT_MAX = 28
+HEADER_FONT_MIN = 11
+HEADER_FONT_MAX = 18
 READABLE_FONT = 11
 PAD_X = 6
 PAD_Y = 4
@@ -118,6 +125,7 @@ MORSE_FROM = {}
 for _ch, _pat in MORSE_LETTERS.items():
     MORSE_FROM.setdefault(_pat, _ch)
 
+
 @functools.lru_cache(maxsize=128)
 def _load_font(size):
     for path in (
@@ -170,7 +178,7 @@ def _wrap(text, font, max_width):
 def _fit_header(text, width, max_height):
     inner = max(40, width - PAD_X * 2)
     fallback = None
-    for size in range(HEADER_FONT_MAX, HEADER_FONT_MIN - 1, -1):
+    for size in range(HEADER_FONT_MAX, READABLE_FONT - 1, -1):
         font = _load_font(size)
         lines = _wrap(text, font, inner)
         ascent, descent = font.getmetrics()
@@ -305,9 +313,9 @@ def _braille_grid(rows, content_w, content_h):
     }
 
 
-def _dot_centers(grid, col, row):
+def _dot_centers(grid, col, row, header_h=0):
     x0 = grid["margin"] + col * grid["cell_w"] + grid["radius"]
-    y0 = grid["margin"] + row * grid["cell_h"] + grid["radius"]
+    y0 = header_h + grid["margin"] + row * grid["cell_h"] + grid["radius"]
     dx, dy = grid["dx"], grid["dy"]
     return (
         (x0, y0),
@@ -410,8 +418,8 @@ def _pack_morse(groups, max_units):
     return rows or [[]]
 
 
-def _render_morse(rows, content_w, content_h, unit):
-    line_h = unit + MORSE_ROW_GAP
+def _render_morse(rows, content_w, content_h, unit, row_gap=MORSE_ROW_GAP):
+    line_h = unit + row_gap
     image = Image.new("RGB", (content_w, content_h), (255, 255, 255))
     draw = ImageDraw.Draw(image)
     for row_i, groups in enumerate(rows):
@@ -426,10 +434,6 @@ def _render_morse(rows, content_w, content_h, unit):
                 if index != len(pattern) - 1:
                     x += unit
     return image
-
-
-def _header_budget(side):
-    return max(18, int(side * HEADER_MAX_RATIO))
 
 
 def _header_at(text, width, size):
@@ -466,17 +470,13 @@ def _plan_braille(text, with_header=True):
     content_need = max(content_w, content_h)
     if not with_header:
         return content_need, 0, rows
-    side = content_need
+    side = max(100, content_need)
     header_h = 0
-    for _ in range(12):
-        _font, lines, _line_h, header_h = _fit_header(CONTROL_BRAILLE, side, _header_budget(side))
-        need = max(
-            content_w,
-            content_h + header_h,
-        )
-        if need <= side and " ".join(lines) == CONTROL_BRAILLE:
+    for _ in range(30):
+        font, lines, line_h, header_h = _fit_header(CONTROL_BRAILLE, side, side - content_h)
+        if side - header_h >= content_h and side >= content_w and " ".join(lines) == CONTROL_BRAILLE:
             return side, header_h, rows
-        side = need
+        side += 8
     return side, header_h, rows
 
 
@@ -484,32 +484,92 @@ def _plan_morse(text, with_header=True):
     groups = _morse_groups(text or "")
     total = sum(_group_units(group) for group in groups) or 1
     max_group = max((_group_units(g) for g in groups), default=1)
-    unit = MIN_UNIT
-    line_h = unit + MORSE_ROW_GAP
-    est_content_side = math.ceil(math.sqrt(total * unit * line_h))
-    min_side_for_group = max_group * unit + MORSE_MARGIN * 2
+
+    u_base = MIN_UNIT
+    rg_base = MORSE_ROW_GAP
+    l_h_base = u_base + rg_base
+
+    est_content_side = math.ceil(math.sqrt(total * u_base * l_h_base))
+    min_side_for_group = max_group * u_base + MORSE_MARGIN * 2
     start_side = max(64, est_content_side, min_side_for_group)
     side = int(math.ceil(start_side / 8.0) * 8)
-    header_h = 16 if with_header else 0
-    rows = [[]]
-    while side < 2400:
-        if with_header:
-            _font, lines, _line_h, header_h = _fit_header(CONTROL_MORSE, side, _header_budget(side))
-            header_ok = " ".join(lines) == CONTROL_MORSE
-        else:
-            header_h = 0
-            header_ok = True
 
-        content_h = side - header_h
-        cols = max(1, (side - MORSE_MARGIN * 2) // unit)
-        fit_rows = max(1, (content_h - MORSE_MARGIN * 2) // line_h)
-        if cols >= max_group and cols * fit_rows >= total and header_ok:
+    if not with_header:
+        header_h = 0
+        while side < 2400:
+            cols = max(1, (side - MORSE_MARGIN * 2) // u_base)
             rows = _pack_morse(groups, cols)
-            if len(rows) <= fit_rows:
-                return side, header_h, rows, unit
+            if len(rows) * l_h_base + MORSE_MARGIN * 2 <= side:
+                break
+            side += 8
+    else:
+        while side < 2400:
+            font, lines, line_h_hdr, header_h = _fit_header(CONTROL_MORSE, side, side - 20)
+            content_h = side - header_h
+            cols = max(1, (side - MORSE_MARGIN * 2) // u_base)
+            if cols >= max_group:
+                rows = _pack_morse(groups, cols)
+                needed_h = len(rows) * l_h_base + MORSE_MARGIN * 2
+                if needed_h <= content_h and " ".join(lines) == CONTROL_MORSE:
+                    break
+            side += 8
+
+    content_h = side - header_h if with_header else side
+    content_w = side
+
+    best_u = u_base
+    best_rg = rg_base
+    best_cols = max(1, (content_w - MORSE_MARGIN * 2) // u_base)
+    best_rows = _pack_morse(groups, best_cols)
+
+    for u in range(u_base + 1, 40):
+        rg = max(2, u // 3)
+        lh = u + rg
+        cols = max(1, (content_w - MORSE_MARGIN * 2) // u)
+        if cols < max_group:
+            break
+        r = _pack_morse(groups, cols)
+        needed_h = len(r) * lh + MORSE_MARGIN * 2
+        if needed_h <= content_h:
+            best_u = u
+            best_rg = rg
+            best_rows = r
+        else:
+            break
+
+    return side, header_h, best_rows, best_u, best_rg
+
+
+def _plan_qr(text, with_header=True):
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=1,
+        border=2,
+    )
+    qr.add_data(text or "")
+    qr.make(fit=True)
+    matrix_len = len(qr.get_matrix())
+    min_box_size = 3
+    needed_dim = matrix_len * min_box_size
+
+    if not with_header:
+        side = max(60, needed_dim)
+        side = int(math.ceil(side / 8.0) * 8)
+        return side, 0, qr
+
+    start_side = max(128, needed_dim)
+    side = int(math.ceil(start_side / 8.0) * 8)
+
+    while side < 2400:
+        font, lines, line_h_hdr, header_h = _fit_header(CONTROL_QR, side, side - 20)
+        content_h = side - header_h
+        if content_h >= needed_dim and side >= needed_dim and " ".join(lines) == CONTROL_QR:
+            return side, header_h, qr
         side += 8
-    rows = _pack_morse(groups, max(1, (side - MORSE_MARGIN * 2) // unit))
-    return side, header_h, rows, unit
+
+    font, lines, line_h_hdr, header_h = _fit_header(CONTROL_QR, side, side - 20)
+    return side, header_h, qr
 
 
 def build_image(mode, text, with_header=True):
@@ -535,28 +595,63 @@ def build_image_info(mode, text, with_header=True):
     if mode == "braille":
         side, header_h, rows = _plan_braille(text, with_header=with_header)
         if with_header:
-            font, lines, line_h, header_h = _fit_header(CONTROL_BRAILLE, side, _header_budget(side))
-            content_h = side - header_h
-            content, grid = _render_braille(rows, side, content_h)
+            n_rows = max(1, len(rows))
+            content_h = n_rows * MIN_CELL_H + BRAILLE_MARGIN * 2
+            font, lines, line_h, header_h = _fit_header(CONTROL_BRAILLE, side, side - content_h)
+            content, grid = _render_braille(rows, side, side - header_h)
             image = Image.new("RGB", (side, side), (255, 255, 255))
             _paint_header(image, lines, font, line_h, header_h)
             image.paste(content, (0, header_h))
+            grid["header_h"] = header_h
             return image, header_h, grid
         else:
             content, grid = _render_braille(rows, side, side)
+            grid["header_h"] = 0
             return content, 0, grid
 
-    side, header_h, rows, unit = _plan_morse(text, with_header=with_header)
+    if mode == "qr":
+        side, header_h, qr = _plan_qr(text, with_header=with_header)
+        matrix_len = len(qr.get_matrix())
+        if with_header:
+            font, lines, line_h_hdr, header_h = _fit_header(CONTROL_QR, side, side - 10)
+            content_h = side - header_h
+            box_size = max(1, content_h // matrix_len)
+            qr.box_size = box_size
+            qr_scaled = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+            content = Image.new("RGB", (side, content_h), (255, 255, 255))
+            offset_x = (side - qr_scaled.width) // 2
+            offset_y = (content_h - qr_scaled.height) // 2
+            content.paste(qr_scaled, (max(0, offset_x), max(0, offset_y)))
+
+            image = Image.new("RGB", (side, side), (255, 255, 255))
+            _paint_header(image, lines, font, line_h_hdr, header_h)
+            image.paste(content, (0, header_h))
+            return image, header_h, {"mode": mode, "box_size": box_size, "header_h": header_h}
+        else:
+            box_size = max(1, side // matrix_len)
+            qr.box_size = box_size
+            qr_scaled = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+            content = Image.new("RGB", (side, side), (255, 255, 255))
+            offset_x = (side - qr_scaled.width) // 2
+            offset_y = (side - qr_scaled.height) // 2
+            content.paste(qr_scaled, (max(0, offset_x), max(0, offset_y)))
+            return content, 0, {"mode": mode, "box_size": box_size, "header_h": 0}
+
+    side, header_h, rows, unit, row_gap = _plan_morse(text, with_header=with_header)
+    line_h = unit + row_gap
     if with_header:
-        font, lines, line_h, header_h = _fit_header(CONTROL_MORSE, side, _header_budget(side))
-        content = _render_morse(rows, side, side - header_h, unit)
+        needed_content_h = len(rows) * line_h + MORSE_MARGIN * 2
+        font, lines, line_h_hdr, header_h = _fit_header(CONTROL_MORSE, side, side - needed_content_h)
+        content = _render_morse(rows, side, side - header_h, unit, row_gap)
         image = Image.new("RGB", (side, side), (255, 255, 255))
-        _paint_header(image, lines, font, line_h, header_h)
+        _paint_header(image, lines, font, line_h_hdr, header_h)
         image.paste(content, (0, header_h))
-        return image, header_h, {"unit": unit, "line_h": unit + MORSE_ROW_GAP}
+        return image, header_h, {"unit": unit, "line_h": line_h, "header_h": header_h}
     else:
-        content = _render_morse(rows, side, side, unit)
-        return content, 0, {"unit": unit, "line_h": unit + MORSE_ROW_GAP}
+        content = _render_morse(rows, side, side, unit, row_gap)
+        return content, 0, {"unit": unit, "line_h": line_h, "header_h": 0}
 
 
 def canvas_size(mode, text, with_header=True):
@@ -564,8 +659,10 @@ def canvas_size(mode, text, with_header=True):
         side, _payload_h = _plan_stego(text, with_header=with_header)
     elif mode == "braille":
         side, _header_h, _rows = _plan_braille(text, with_header=with_header)
+    elif mode == "qr":
+        side, _header_h, _qr = _plan_qr(text, with_header=with_header)
     else:
-        side, _header_h, _rows, _unit = _plan_morse(text, with_header=with_header)
+        side, _header_h, _rows, _unit, _rg = _plan_morse(text, with_header=with_header)
     return side, side
 
 
@@ -585,13 +682,14 @@ def content_origin(image):
 
 def decode_braille(image, grid):
     gray = np.asarray(image.convert("L"))
+    header_h = grid.get("header_h", content_origin(image))
     decoded_chunks = []
     caps = False
     number_mode = False
     for row_i in range(grid["n_rows"]):
         for col_i in range(grid["n_cols"]):
             bits = 0
-            for bit, (cx, cy) in enumerate(_dot_centers(grid, col_i, row_i)):
+            for bit, (cx, cy) in enumerate(_dot_centers(grid, col_i, row_i, header_h=header_h)):
                 if 0 <= cy < gray.shape[0] and 0 <= cx < gray.shape[1] and gray[cy, cx] < 128:
                     bits |= 1 << bit
             if bits == 0:
@@ -632,8 +730,10 @@ def decode_braille(image, grid):
 def decode_morse(image, layout):
     unit = layout["unit"]
     line_h = layout["line_h"]
+    start_y = layout.get("header_h", content_origin(image))
     gray = np.asarray(image.convert("L"))
-    n_lines = max(0, (gray.shape[0] - MORSE_MARGIN) // line_h)
+    content_height = gray.shape[0] - start_y
+    n_lines = max(0, (content_height - MORSE_MARGIN * 2) // line_h)
     symbols = []
     letters = []
     words = []
@@ -679,7 +779,7 @@ def decode_morse(image, layout):
             words.clear()
 
     for row_i in range(n_lines):
-        y = MORSE_MARGIN + row_i * line_h + unit // 2
+        y = start_y + MORSE_MARGIN + row_i * line_h + unit // 2
         if y >= gray.shape[0]:
             break
         row = gray[y, MORSE_MARGIN:gray.shape[1] - MORSE_MARGIN]
@@ -707,5 +807,21 @@ def decode_morse(image, layout):
             else:
                 apply_gap(units)
     flush_word()
-    lines.append(" ".join(words))
+    if words:
+        lines.append(" ".join(words))
     return "\n".join(lines).rstrip("\n")
+
+
+def decode_qr(image, layout=None):
+    try:
+        import cv2
+        detector = cv2.QRCodeDetector()
+        data, bbox, _ = detector.detectAndDecode(np.array(image.convert("RGB")))
+        if data:
+            return data
+        ok, decoded_info, _, _ = detector.detectAndDecodeMulti(np.array(image.convert("RGB")))
+        if ok and decoded_info and decoded_info[0]:
+            return decoded_info[0]
+        return ""
+    except Exception:
+        return ""
