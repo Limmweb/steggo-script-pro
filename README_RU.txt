@@ -18,21 +18,22 @@ STEGGO SCRIPT / CHIPS MAKER PRO (РУССКАЯ ДОКУМЕНТАЦИЯ)
    QR-чипсы с автоматической коррекцией ошибок и мгновенным декодированием.
 
 ------------------------------------------------------------------------------
-СКАЧАТЬ ГОТОВЫЙ EXE ФАЙЛ
+СКАЧАТЬ ПРОГРАММЫ И ДОКУМЕНТАЦИЮ (WINDOWS)
 ------------------------------------------------------------------------------
 
-Прямая ссылка на скачивание (Windows .EXE):
-https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe
+* SteggoScriptPro_v1.0.0.zip (Программа SteggoScriptPro.exe + Инструкции README RU/EN):
+  https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro_v1.0.0.zip
 
-* Портативная версия, не требует установки Python и каких-либо библиотек.
+* SteggoScriptPro.exe (Отдельный исполняемый файл):
+  https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe
 
 ------------------------------------------------------------------------------
 СПОСОБЫ ЗАПУСКА
 ------------------------------------------------------------------------------
 
-Способ 1: Готовый EXE файл (Windows)
-1. Скачайте SteggoScriptPro.exe по ссылке выше.
-2. Запустите файл двойным кликом.
+Способ 1: Готовый EXE / ZIP архив (Windows)
+1. Скачайте SteggoScriptPro_v1.0.0.zip или .exe по ссылкам выше.
+2. Распакуйте архив (если скачали ZIP) и запустите SteggoScriptPro.exe двойным кликом.
 
 Способ 2: Запуск из исходного кода Python
 Если вы хотите вносить изменения или изучить исходный код:

@@ -13,18 +13,18 @@ A universal desktop application for generating and decoding text chips and stega
 
 ---
 
-## 📥 Executable Download
+## 📥 Downloads (Windows)
 
-* **Direct Download Link (Windows .EXE):** [SteggoScriptPro.exe (v1.0.0)](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe)
-* Portable standalone executable (no Python installation required).
+* 📦 **[SteggoScriptPro_v1.0.0.zip](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro_v1.0.0.zip)** — Full package (Executable `SteggoScriptPro.exe` + Readme EN / RU)
+* ⚡ **[SteggoScriptPro.exe](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe)** — Standalone portable executable
 
 ---
 
 ## 🚀 Options to Run
 
-### Option 1: Standalone Portable EXE (Windows)
-1. Download `SteggoScriptPro.exe` from the link above.
-2. Simply double-click `SteggoScriptPro.exe` to launch the application.
+### Option 1: Standalone Portable EXE / ZIP (Windows)
+1. Download `SteggoScriptPro_v1.0.0.zip` or `SteggoScriptPro.exe` from the links above.
+2. Extract the archive (if ZIP) and run `SteggoScriptPro.exe`. No installation required.
 
 ### Option 2: Run from Python Source Code
 If you want to modify or inspect the source code:

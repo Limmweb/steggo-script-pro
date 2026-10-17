@@ -18,21 +18,22 @@ four distinct encoding modes:
    with automatic error correction and decoding.
 
 ------------------------------------------------------------------------------
-EXECUTABLE DOWNLOAD
+DOWNLOADS (WINDOWS)
 ------------------------------------------------------------------------------
 
-Direct Download Link (Windows .EXE):
-https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe
+* SteggoScriptPro_v1.0.0.zip (Executable + Readmes):
+  https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro_v1.0.0.zip
 
-* Portable standalone executable (no Python installation required).
+* SteggoScriptPro.exe (Standalone Executable):
+  https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe
 
 ------------------------------------------------------------------------------
 OPTIONS TO RUN
 ------------------------------------------------------------------------------
 
-Option 1: Standalone Portable EXE (Windows)
-1. Download SteggoScriptPro.exe from the link above.
-2. Simply double-click SteggoScriptPro.exe to launch the application.
+Option 1: Standalone Portable EXE / ZIP (Windows)
+1. Download SteggoScriptPro_v1.0.0.zip or SteggoScriptPro.exe from the links above.
+2. Extract the archive (if ZIP) and run SteggoScriptPro.exe. No installation required.
 
 Option 2: Run from Python Source Code
 If you want to modify or inspect the source code:

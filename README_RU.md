@@ -13,18 +13,18 @@
 
 ---
 
-## 📥 Скачать готовый EXE файл
+## 📥 Скачать программы и документацию (Windows)
 
-* **Прямая ссылка на скачивание (Windows .EXE):** [SteggoScriptPro.exe (v1.0.0)](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe)
-* Портативная версия, не требует установки Python и каких-либо библиотек.
+* 📦 **[SteggoScriptPro_v1.0.0.zip](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro_v1.0.0.zip)** — Полный архив (Программа `SteggoScriptPro.exe` + Инструкции README RU/EN)
+* ⚡ **[SteggoScriptPro.exe](https://github.com/Limmweb/steggo-script-pro/releases/download/v1.0.0/SteggoScriptPro.exe)** — Отдельный исполняемый файл
 
 ---
 
 ## 🚀 Способы запуска
 
-### Способ 1: Готовый EXE файл (Windows)
-1. Скачайте `SteggoScriptPro.exe` по ссылке выше.
-2. Запустите файл двойным кликом.
+### Способ 1: Готовый EXE / ZIP архив (Windows)
+1. Скачайте `SteggoScriptPro_v1.0.0.zip` или `.exe` по ссылкам выше.
+2. Распакуйте архив (если скачали ZIP) и запустите `SteggoScriptPro.exe` двойным кликом.
 
 ### Способ 2: Запуск из исходного кода Python
 Если вы хотите вносить изменения или изучить исходный код:
